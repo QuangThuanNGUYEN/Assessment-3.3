@@ -47,11 +47,14 @@ class WaterNetwork:
         def __str__(self):
             return f"Key: {self._key}, {self._coordinates}, Type: {self._type}, Link: {self._link}"
 
+        # Calculate distance between 2 nodes
         def calculate_distance(self, dest):
             return math.sqrt((self._coordinates._x - dest._coordinates._x) ** 2 + (self._coordinates._y - dest._coordinates._y) ** 2)
         
+        # Find the neighbours of a vertex
         def neighbour_of_vertex(self):
             return self._link
+
 
     def __len__(self):
         return self._size
@@ -79,28 +82,46 @@ class WaterNetwork:
         return self._edge_list
     
     
+    # This function uses dfs traverse algorithm to detect cycles
     def dfs_detect_cycles(self, vertex, visited, pre_vertex, path, cycles):
+        # Labels every node as not visited
         visited[vertex] = True
+        # Start with selected vertex
         path.append(vertex)
+        # Loop through all its neighbour
         for neighbour in self._node_list[vertex]._link:
+            # Ignore the vertex 0
             if neighbour == 0:
                 continue
+            # Visit this neighbour if it has not been visited yet
             if not visited[neighbour]:
                 self.dfs_detect_cycles(neighbour, visited, vertex, path, cycles)
+            # If encountering a met neighbour
             if neighbour != pre_vertex and neighbour in path:
+                # Get the index of this neighbour in the path
                 cycle_start = path.index(neighbour)
+                # The cycle starts from this neighbour toward the end of the path
                 cycle = path[cycle_start:]
+                # Append the new cycle to cycle list
                 cycles.append(cycle)
+                # Print the new cycle
                 print("Cycle:", " -> ".join(map(str, cycle + [cycle[0]])))
+                
+        # After visiting all neighbours, switch to a different node to explore
         path.pop()
     
+    
+    # This function helps to create a dict of edges between headwaters of this graph (assume it is a complete graph)
     def create_edge_complete_graph(self):
+        # Create a dictionary of edges
         edge_list = {i:[] for i in range(self._size + 1)}
+        # Loop through all nodes in node list
         for src in self._node_list:
             for dest in self._node_list:
                 if src == dest:
                     continue
                 else:
+                    # Append a headwater, its neighbour, and the distance to the dictionary
                     if 'headwater' in self._node_list[src]._type and 'headwater' in self._node_list[dest]._type:
                         dist = self._node_list[src].calculate_distance(self._node_list[dest])
                         edge_list[src].append([dest, dist])
@@ -108,7 +129,7 @@ class WaterNetwork:
         return edge_list
                     
     
-    
+    # This function helps to find headwaters in a specific area
     def headwaters_in_range(self, coord1, coord2):
         headwaters = {}
         # iterate through each node and check if that node in the specific range and its type is headwater then append to the headwater dictionary specified above
@@ -155,8 +176,6 @@ class WaterNetwork:
         return prim_mst
 
             
-    # This function is similar to the function "weighted_edge_list" above, difference is
-    # this one producing weighted edge list between only headwaters and in the specific area
     def edge_list_in_range(self, coord1, coord2, edge_list):   
         # Get headwaters in range  
         headwaters_in_range = self.headwaters_in_range(coord1, coord2)
@@ -172,46 +191,107 @@ class WaterNetwork:
         return filtered_dict
     
     
+    # This function helps find the top right headwater 
     def top_right_headwater(self, coord1, coord2, adj):
         min_dist_to_top_right = float('inf')
         top_right_node = None
         
         for headwater in adj:
+            # Calculate distance from the headwater to the top right point
             dist_to_top_right = self._node_list[headwater].calculate_distance(self.Node(x= coord2._x, y=coord1._y))
+            # Finding the closest headwater to the top right point
             if dist_to_top_right < min_dist_to_top_right:
                 top_right_node = headwater
                 min_dist_to_top_right = dist_to_top_right
         return top_right_node           
     
-    # This function will give the shortest path 
+    # This function will return the prim mst  
     def shortest_flight_path_search(self, coord1, coord2):
         adj = self.create_edge_complete_graph()
-        # return all the headwaters in the range
-        # adj_in_range = self.edge_list_in_range(coord1, coord2, adj) 
         adj_in_range = self.edge_list_in_range(coord1, coord2, adj) 
         top_right_headwater = self.top_right_headwater(coord1, coord2, adj_in_range)
         prim = self.prim(adj_in_range, top_right_headwater)
         return prim
     
+        
+    # This function helps find the original sources
     def bfs_find_sources(self, initial_vertex):
+        # Initialize a list to keep track of visited vertices
         visited = [False] * self._size
+        
+        # Create an edge list based on a certain option (option=2)
         self.create_edge_list(option=2)
+        
+        # Initialize variables to track source discovery
         source_found = False
         sources = []
+        
+        # Initialize a queue for the Breadth-First Search (BFS)
         queue = []
         queue.append(initial_vertex)
+        
+        # Start the breadth-first search to search for the nearest headwater
         while(len(queue) > 0):
+            # Get the current node from the queue
             curr_vertex = queue.pop()
+            
+            # Find its neighbors by iterating through edges
             for edge in self._edge_list[curr_vertex]:
                 neighbour = edge[0]
+                
+                # If the neighbor has not been visited, add it to the queue
                 if not visited[neighbour]:
                     queue.append(neighbour)
+                
+                # Check if the neighbor is a "headwater" source
                 if "headwater" in self._node_list[neighbour]._type:
                     source_found = True
                     sources.append(neighbour)
+            
+            # If a source is found, return the list of sources
             if source_found:
                 return sources
+                
             
+    # def dfs_detect_sources(self, vertex, visited, concentration, max_weight, weight, sources:[], pre_vertex, edge_list):
+    #     visited[vertex] = True
+    #     if vertex == 56 or vertex == 57:
+    #         pass
+    #     if "junction" in self._node_list[vertex]._type:
+    #         weight += concentration[vertex]
+    #     elif "headwater" in self._node_list[vertex]._type and weight == max_weight:
+    #         sources.append(vertex)
+    #         weight -= concentration[pre_vertex]
+            
+    #     # for neighbour in self._node_list[vertex]._link:
+    #     for neighbour in edge_list[vertex]:
+    #         v = neighbour[0]
+    #         if v == 0:
+    #             continue
+    #         if not visited[v]:
+    #             self.dfs_detect_sources(v, visited, concentration, max_weight, weight, sources, vertex, edge_list)
+         
+        
+    # def chemical_sources(self, sequence_of_junctions:tuple):
+    #     concentration = {i : 0 for i in range(self._size)}
+    #     max_weight = 0
+    #     min_conc = float("inf")
+    #     min_junc = None
+    #     for junction in sequence_of_junctions:
+    #         concentration[junction[0]] = junction[1]
+    #         max_weight += junction[1]
+    #         if junction[1] < min_conc:
+    #             min_junc = junction[0]
+    #             min_conc = junction[1]
+    #     # print(concentration)
+    #     edge_list = self.create_edge_list(option=2)
+    #     visited = [False] * (self._size + 1)
+    #     sources = []
+    #     self.dfs_detect_sources(min_junc, visited, concentration, max_weight, 0, sources, None, edge_list)
+             
+    #     return sources
+     
+    # This function helps find the largest-concentration junction and return sources
     def chemical_sources(self, sequence_of_junctions:tuple):
         max_conc = sequence_of_junctions[0][1]
         max_junc = sequence_of_junctions[0][0]
@@ -221,7 +301,7 @@ class WaterNetwork:
                 max_junc = junction[0]
                 
         return self.bfs_find_sources(max_junc)
-     
+# This function helps read location data from the csv file
 def read_csv_file(file_path):
     location_list = pd.read_csv(file_path)
     file_size = len(location_list)
@@ -248,10 +328,9 @@ def read_csv_file(file_path):
         water_network.create_edge_list(option=1)
     return water_network
 
-
+# This function helps red the names of rivers and creeks
 def read_river_names_file(file_path):
     name_list = pd.read_csv(file_path)
-    first_row = name_list.iloc[0]
     file_size = len(name_list)
     name_text = ''
     for i in range(file_size):
@@ -263,43 +342,67 @@ def read_river_names_file(file_path):
 def get_encoding_trie(text):
     if len(text) == 0:
         return
+    # Find the frequency of the character in the text
     freq = {ch: text.count(ch) for ch in set(text)}
+    # Create a list of trie node (key, value)
     pq = [Trie(key, value) for key, value in freq.items()] 
+    # Convert the list into a heap 
     heapq.heapify(pq)
     while len(pq) > 1:
+        # Pop the two nodes with the lowest frequencies from the heap
         left, right = heapq.heappop(pq), heapq.heappop(pq)
+        # Create a new node with a frequency equal to the sum of the frequencies of the two children.
         new_freq = left.freq + right.freq
+        # Push the new node back into the heap.
         heapq.heappush(pq, Trie(None, new_freq, left, right))
     root = pq[0]
     return root
 
 
-def generate_huffman_codes(root):
-    def _generate_huffman_codes(node, current_code, result):
+# This function generates binary codes for characters in the encoding trie.
+def generate_binary_codes(root):
+    # Internal recursive function to traverse the encoding trie.
+    def _generate_binary_codes(node, current_code, result):
+        # If the current node represents a character, add its binary code to the result.
         if node.char is not None:
             result[node.char] = current_code
             return
+        
+        # Recursively traverse the left subtree, appending '0' to the current binary code.
         if node.left:
-            _generate_huffman_codes(node.left, current_code + '0', result)
+            _generate_binary_codes(node.left, current_code + '0', result)
+        
+        # Recursively traverse the right subtree, appending '1' to the current binary code.
         if node.right:
-            _generate_huffman_codes(node.right, current_code + '1', result)
+            _generate_binary_codes(node.right, current_code + '1', result)
 
-    huffman_codes = {}
-    _generate_huffman_codes(root, '', huffman_codes)
-    return huffman_codes
+    # Initialize an empty dictionary to store binary codes.
+    binary_codes = {}
+    
+    # Start the traversal from the root of the encoding trie with an empty current_code.
+    _generate_binary_codes(root, '', binary_codes)
+    
+    return binary_codes  # Return the dictionary of binary codes.
 
+# This function encodes an input string using binary codes from an encoding trie.
 def code_string(root, input_string):
-    huffman_codes = generate_huffman_codes(root)
+    # Generate binary codes for characters in the encoding trie.
+    binary_codes = generate_binary_codes(root)
+    
+    # Initialize an empty string to store the encoded output.
     encoded_string = ""
 
+    # Iterate through each character in the input string.
     for char in input_string:
-        if char in huffman_codes:
-            encoded_string += huffman_codes[char]
+        # Check if the character has a corresponding binary code.
+        if char in binary_codes:
+            # Append the binary code of the character to the encoded string.
+            encoded_string += binary_codes[char]
         else:
-            raise ValueError(f"Character '{char}' not found in Huffman codes")
+            # Raise a ValueError if a character is not found in the binary codes.
+            raise ValueError(f"Character '{char}' not found in trie")
 
-    return encoded_string
-
+    return encoded_string  # Return the encoded string.
 
 def print_node_list(water_network):
     for i in range(1, water_network._size + 1):
@@ -324,59 +427,22 @@ def main():
     print(cycles)
     # Q2
     print("\n\nQ2")
-    print(water_network.shortest_flight_path_search(Coordinates(200, 350), Coordinates(410, 600)))
+    prim = water_network.shortest_flight_path_search(Coordinates(200, 350), Coordinates(410, 600))
+    print("Path:", " -> ".join(map(str, prim)))
 
     
     # Q3
     print("\n\nQ3")
-    # print(water_network.chemical_sources([(58,3),(55,10),(52,5)]))
-    print(water_network.chemical_sources([(46, 4), (41, 2), (55, 8)]))
-    
+    print(water_network.chemical_sources([(58,3),(55,10),(52,5)]))
     
     # Q4
     print("\n\nQ4")
     name_text = read_river_names_file("River_creek_names.csv")
     root = get_encoding_trie(name_text)
-    encoded_string = code_string(root, "Hemit")
+    encoded_string = code_string(root, "Daly")
     print(encoded_string)
     
     
-    
-    
-    
-    
-    
-    
-    # Q1
-    # print("Q1: ")
-    # junction = water_network.flow_rate_in_range(Coordinates(70, 100), Coordinates(315, 460))
-    # sorted_junction = water_network.bubble_sort_flow_rate(junction)
-    # print("Sorted junction from highest to lowest flow rate:")
-    # print(sorted_junction)
-    
-    # Q2
-    # print("\n\n\nQ2:")
-    # trace, dist = water_network.shortest_path_search(Coordinates(300, 380), Coordinates(400, 580)) 
-    # if trace != None:
-    #     print(f"Distance (included backtracking cost): {dist}")
-    #     print("\nList of path:")
-    #     print(trace)
-    
-    # Q3
-    # print("\n\n\nQ3:")
-    # junction_loc = int(input("Choose junction to dam: "))
-    # main_river_flow = water_network.choose_dam_loc(junction_loc) # locate dam at the specific junction 
-    # print(f"Flow rate of the main river flow from the dam location:")
-    # print(main_river_flow)
-
-    # # Q4
-    # print("\n\n\nQ4:")
-    # print("The path after updating the velocity:")
-    # trace, dist = water_network.weighted_shortest_path_search(Coordinates(300, 380), Coordinates(400, 580))
-    # if trace != None:
-    #     print(trace)
-    #     print(f"Number of hours: {dist} hours to inspect all the headwaters in this area")
-
 
 if __name__ == "__main__":
     main()
